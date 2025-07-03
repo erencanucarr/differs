@@ -1,16 +1,22 @@
 {
   "name": "diffox",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A lightweight, dependency-free Node.js CLI tool for comparing and synchronizing directories and files",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "start": "node src/index.js"
   },
-  "keywords": ["directory", "diff", "sync", "comparison", "folder"],
+  "keywords": [
+    "directory",
+    "diff",
+    "sync",
+    "comparison",
+    "folder"
+  ],
   "author": "Eren Can Ucar",
   "license": "MIT",
   "bin": {
     "diffox": "./src/index.js"
   }
-} 
+}

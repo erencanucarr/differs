@@ -1,5 +1,5 @@
 import path from 'path';
-import { fileSystem, print } from './utils.js';
+import { fileSystem, print, hash } from './utils.js';
 
 export class DirectorySynchronizer {
   constructor() {
@@ -23,7 +23,7 @@ export class DirectorySynchronizer {
         this.copyFile(sourceDir, targetDir, missingFile, result);
       }
 
-      // Değişen dosyaları güncelle (zaman damgasına göre)
+      // Değişen dosyaları güncelle (zaman damgası ve içerik hash'ine göre)
       for (const changedFile of comparisonResult.changed) {
         this.updateFile(sourceDir, targetDir, changedFile, result);
       }
@@ -59,19 +59,35 @@ export class DirectorySynchronizer {
   }
 
   /**
-   * Update file by modification time
+   * Update file by modification time or content hash (platform bağımsız)
    */
   updateFile(sourceDir, targetDir, relativePath, result) {
     try {
       const sourcePath = path.join(sourceDir, relativePath);
       const targetPath = path.join(targetDir, relativePath);
 
-      // Her iki dosyanın zaman damgasını kontrol et
+      // Her iki dosyanın zaman damgasını ve içeriğini kontrol et
       const sourceStat = fileSystem.getStats(sourcePath);
       const targetStat = fileSystem.getStats(targetPath);
 
-      // Kaynak dosya daha yeniyse güncelle
-      if (sourceStat.mtime.getTime() > targetStat.mtime.getTime()) {
+      // İçerik hash'lerini karşılaştır
+      let sourceHash, targetHash;
+      try {
+        sourceHash = hash.fileMd5(sourcePath);
+        targetHash = hash.fileMd5(targetPath);
+      } catch (e) {
+        // Dosya okunamıyorsa, güncelleme denensin
+        sourceHash = null;
+        targetHash = null;
+      }
+
+      // Güncelleme koşulu: kaynak dosya daha yeni veya içerik farklıysa
+      const shouldUpdate = (
+        sourceStat.mtime.getTime() > targetStat.mtime.getTime() ||
+        (sourceHash && targetHash && sourceHash !== targetHash)
+      );
+
+      if (shouldUpdate) {
         // Yedek oluştur
         if (this.backupEnabled) {
           this.createBackup(targetPath);
@@ -83,7 +99,7 @@ export class DirectorySynchronizer {
         result.updated.push(relativePath);
         print.warning(`   🔄 Updated: ${relativePath}`);
       } else {
-        print.info(`   ⏭️  Skipped (target is newer): ${relativePath}`);
+        print.info(`   ⏭️  Skipped (target is newer and identical): ${relativePath}`);
       }
     } catch (error) {
       result.errors.push(`Update error (${relativePath}): ${error.message}`);
